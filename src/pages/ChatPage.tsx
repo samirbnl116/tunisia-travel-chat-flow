@@ -25,7 +25,7 @@ const ChatPage = () => {
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const webhookUrl = "https://gorgeous-egret-smart.ngrok-free.app/webhook-test/fb43e1ec-0349-4ffd-8b83-0c0caf603d72";
+  const webhookUrl = "https://gorgeous-egret-smart.ngrok-free.app/webhook/fb43e1ec-0349-4ffd-8b83-0c0caf603d72";
   const { toast } = useToast();
 
   // Listen for incoming messages from n8n via real-time subscription
