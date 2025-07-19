@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Send, MapPin, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ChatMessage {
   id: string;
@@ -26,6 +27,41 @@ const ChatPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const webhookUrl = "https://gorgeous-egret-smart.ngrok-free.app/webhook-test/fb43e1ec-0349-4ffd-8b83-0c0caf603d72";
   const { toast } = useToast();
+
+  // Listen for incoming messages from n8n via real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages'
+        },
+        (payload) => {
+          console.log('New message received:', payload);
+          const newMessage: ChatMessage = {
+            id: payload.new.id,
+            content: payload.new.message,
+            isUser: false,
+            timestamp: new Date(payload.new.created_at),
+          };
+          
+          setMessages(prev => [...prev, newMessage]);
+          
+          toast({
+            title: "New message received",
+            description: "You have a new message from our travel team.",
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
