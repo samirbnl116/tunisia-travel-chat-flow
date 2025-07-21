@@ -92,7 +92,7 @@ const ChatPage = () => {
 
       const botResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: "Thank you! I've received your travel request and forwarded it to our team. We'll contact you shortly with a personalized itinerary and guide recommendations for your Tunisia adventure!",
+        content: "Thanks! Your travel request is with our team now. You’ll get a confirmation in just a few seconds — 30 seconds max!",
         isUser: false,
         timestamp: new Date(),
       };
