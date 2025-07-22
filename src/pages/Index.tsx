@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { DestinationsCarousel } from "@/components/DestinationsCarousel";
 import heroImage from "@/assets/tunisia-hero.jpg";
 
 const Index = () => {
@@ -53,6 +54,11 @@ const Index = () => {
             </div>
           </div>
         </div>
+      </div>
+      
+      {/* Destinations Carousel Section */}
+      <div className="relative z-10 py-16">
+        <DestinationsCarousel />
       </div>
     </div>
   );
