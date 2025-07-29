@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Send, MapPin } from "lucide-react";
+import { ArrowLeft, Send, MapPin, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,66 +18,50 @@ const ChatPage = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
-      content: "Hi! What's your name?",
+      content: "Welcome! I'm your personal Tunisia travel assistant. Please tell me about your travel plans - include your name, places you'd like to visit, dates, and contact information. I'll help you plan the perfect journey!",
       isUser: false,
       timestamp: new Date(),
     },
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const webhookUrl = "https://gorgeous-egret-smart.ngrok-free.app/webhook-test/3a31f0b7-ba10-4d4d-b72b-9d5c55399889";
-  const chatId = "0c066edc-af1b-4927-9cc1-79238b3b8938";
+  const webhookUrl = "https://gorgeous-egret-smart.ngrok-free.app/webhook/fb43e1ec-0349-4ffd-8b83-0c0caf603d72";
   const { toast } = useToast();
 
-  // Poll Supabase for new messages every few seconds
+  // Listen for incoming messages from n8n via real-time subscription
   useEffect(() => {
-    const pollMessages = async () => {
-      try {
-        // Note: This assumes chat_messages table has the structure as defined
-        // You may need to add a chat_id column to filter by specific chatId
-        const { data, error } = await supabase
-          .from('chat_messages')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (error) {
-          console.error('Error polling messages:', error);
-          return;
-        }
-
-        if (data && data.length > 0) {
-          const latestMessage = data[0];
-          const lastMessageId = messages[messages.length - 1]?.id;
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages'
+        },
+        (payload) => {
+          console.log('New message received:', payload);
+          const newMessage: ChatMessage = {
+            id: payload.new.id,
+            content: payload.new.message,
+            isUser: false,
+            timestamp: new Date(payload.new.created_at),
+          };
           
-          // Only add if it's a new message and not from user
-          if (latestMessage.id !== lastMessageId && latestMessage.source === 'n8n') {
-            const newMessage: ChatMessage = {
-              id: latestMessage.id,
-              content: latestMessage.message,
-              isUser: false,
-              timestamp: new Date(latestMessage.created_at),
-            };
-            
-            setMessages(prev => [...prev, newMessage]);
-            
-            toast({
-              title: "New message received",
-              description: "You have a new message from our travel team.",
-            });
-          }
+          setMessages(prev => [...prev, newMessage]);
+          
+          toast({
+            title: "New message received",
+            description: "You have a new message from our travel team.",
+          });
         }
-      } catch (error) {
-        console.error('Error polling messages:', error);
-      }
-    };
-
-    const interval = setInterval(pollMessages, 3000); // Poll every 3 seconds
+      )
+      .subscribe();
 
     return () => {
-      clearInterval(interval);
+      supabase.removeChannel(channel);
     };
-  }, [messages, toast]);
+  }, [toast]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -92,7 +76,7 @@ const ChatPage = () => {
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    // Forward to n8n webhook with new payload format
+    // Forward to n8n webhook
     try {
       await fetch(webhookUrl, {
         method: "POST",
@@ -100,14 +84,23 @@ const ChatPage = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          chatId: chatId,
-          answer: inputMessage,
+          message: inputMessage,
+          timestamp: new Date().toISOString(),
+          source: "tunisia-travel-chat",
         }),
       });
 
+      const botResponse: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: "Thanks! Your travel request is with our team now. You’ll get a confirmation in just a few seconds — 30 seconds max!",
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, botResponse]);
       toast({
         title: "Message sent successfully!",
-        description: "Your message has been sent.",
+        description: "Your travel request has been forwarded to our team.",
       });
     } catch (error) {
       console.error("Error sending to webhook:", error);
@@ -138,6 +131,7 @@ const ChatPage = () => {
           </div>
         </div>
       </div>
+
 
       {/* Chat Container */}
       <div className="max-w-4xl mx-auto px-4 pb-4">
@@ -181,7 +175,7 @@ const ChatPage = () => {
           <div className="border-t p-4">
             <div className="flex space-x-2">
               <Input
-                placeholder="Type your message here..."
+                placeholder="Tell me about your travel plans (name, places, dates, contact info)..."
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
@@ -198,7 +192,7 @@ const ChatPage = () => {
             </div>
             
             <p className="text-xs text-muted-foreground mt-2">
-              Type your name to get started with our travel assistant.
+              Example: "Hi, I'm John. I want to visit Mahdia and Monastir on 20/07/2025. We want a tourist guide from 9am to 5pm. My phone number is 25365475 and my email is john@example.com."
             </p>
           </div>
         </Card>
